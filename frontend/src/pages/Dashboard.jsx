@@ -11,6 +11,11 @@ export default function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // 🔽 New filter & sort states
+const [selectedCategory, setSelectedCategory] = useState("");
+const [priceRange, setPriceRange] = useState("");
+const [sortOption, setSortOption] = useState("");
+
 
   // Fetch products from Python service (when ready)
   useEffect(() => {
@@ -18,83 +23,26 @@ export default function Dashboard() {
   }, []);
 
   const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      // TODO: Replace with actual API call to Python service
-      // const response = await fetch('/api/products');
-      // const data = await response.json();
-      // setProducts(data);
+  try {
+    setLoading(true);
 
-      // Mock data for now
-      const mockProducts = [
-        {
-          id: 1,
-          name: 'Wireless Bluetooth Headphones',
-          description: 'High-quality wireless headphones with noise cancellation',
-          price: 99.99,
-          image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=200&fit=crop',
-          category: 'electronics',
-          stock: 25,
-          rating: 4.5
-        },
-        {
-          id: 2,
-          name: 'Smart Watch Series 5',
-          description: 'Advanced smartwatch with health monitoring and GPS',
-          price: 299.99,
-          image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=200&fit=crop',
-          category: 'electronics',
-          stock: 15,
-          rating: 4.8
-        },
-        {
-          id: 3,
-          name: 'Running Shoes',
-          description: 'Comfortable running shoes for professional athletes',
-          price: 129.99,
-          image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=200&fit=crop',
-          category: 'fashion',
-          stock: 30,
-          rating: 4.3
-        },
-        {
-          id: 4,
-          name: 'Coffee Maker',
-          description: 'Automatic coffee maker with programmable features',
-          price: 79.99,
-          image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-          category: 'home',
-          stock: 20,
-          rating: 4.6
-        },
-        {
-          id: 5,
-          name: 'Professional Backpack',
-          description: 'Waterproof backpack with laptop compartment',
-          price: 49.99,
-          image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&h=200&fit=crop',
-          category: 'fashion',
-          stock: 40,
-          rating: 4.4
-        },
-        {
-          id: 6,
-          name: 'LED Desk Lamp',
-          description: 'LED desk lamp with adjustable brightness',
-          price: 39.99,
-          image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=200&fit=crop',
-          category: 'home',
-          stock: 35,
-          rating: 4.2
-        }
-      ];
-      setProducts(mockProducts);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/products/`);
+    console.log("🔗 Fetching from:", response.url);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+
+    const data = await response.json();
+    console.log("📦 Products from backend:", data);
+    setProducts(data);
+  } catch (error) {
+    console.error("❌ Error fetching products:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleAddToCart = (product) => {
     setCart(prevCart => {
@@ -127,11 +75,92 @@ export default function Dashboard() {
     );
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    // Search functionality will be implemented with backend
-    alert(`Search for: ${searchQuery} (Backend integration pending)`);
-  };
+  const handleSearch = async (e) => {
+  // Prevent form reload
+  if (e && e.preventDefault) e.preventDefault();
+
+  // If search box is empty, reload all products
+  if (searchQuery.trim() === "") {
+    fetchProducts();
+    return;
+  }
+
+  try {
+    setLoading(true);
+    console.log("🔍 Searching for:", searchQuery);
+
+    // Send request to FastAPI search endpoint
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/search?query=${encodeURIComponent(searchQuery)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("📦 Search results:", result);
+
+    // Set products to search results
+    if (result.results && Array.isArray(result.results)) {
+      setProducts(result.results);
+    } else {
+      setProducts([]);
+    }
+  } catch (error) {
+    console.error("❌ Search failed:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+
+// 🔽 Filter handler
+const handleFilter = async () => {
+  try {
+    setLoading(true);
+
+    let url = `${import.meta.env.VITE_API_URL}/products/filter?`;
+
+    // parse price range
+    if (priceRange) {
+      const [min, max] = priceRange.split("-");
+      url += `min_price=${min}&max_price=${max}&`;
+    }
+
+    // category
+    if (selectedCategory) {
+      url += `category_id=${selectedCategory}&`;
+    }
+
+    // sort
+    if (sortOption) {
+      url += `sort_by=${sortOption}&`;
+    }
+
+    console.log("🔗 Filter URL:", url);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
+    const data = await response.json();
+    console.log("📦 Filtered products:", data);
+    setProducts(data);
+  } catch (error) {
+    console.error("❌ Filter failed:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+
+
+
+
 
   const handleCheckout = () => {
     if (cart.length === 0) {
@@ -247,6 +276,54 @@ export default function Dashboard() {
           {activeTab === 'products' && (
             <div>
               <div className="flex justify-between items-center mb-6">
+              {/* 🔽 Filter & Sort Controls */}
+<div className="flex flex-wrap gap-3 mb-6">
+  {/* Category Filter */}
+  <select
+    value={selectedCategory}
+    onChange={(e) => setSelectedCategory(e.target.value)}
+    className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+  >
+    <option value="">All Categories</option>
+    <option value="1">Electronics</option>
+    <option value="2">Clothing</option>
+    <option value="3">Home</option>
+    {/* Add more categories here if needed */}
+  </select>
+
+  {/* Price Range */}
+  <select
+    value={priceRange}
+    onChange={(e) => setPriceRange(e.target.value)}
+    className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+  >
+    <option value="">All Prices</option>
+    <option value="0-50">$0 – $50</option>
+    <option value="50-200">$50 – $200</option>
+    <option value="200-500">$200 – $500</option>
+  </select>
+
+  {/* Sort */}
+  <select
+    value={sortOption}
+    onChange={(e) => setSortOption(e.target.value)}
+    className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+  >
+    <option value="">Sort By</option>
+    <option value="price_asc">Price: Low → High</option>
+    <option value="price_desc">Price: High → Low</option>
+    <option value="newest">Newest</option>
+  </select>
+
+  {/* Apply Button */}
+  <button
+    onClick={handleFilter}
+    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm"
+  >
+    Apply
+  </button>
+</div>
+
                 <h2 className="text-2xl font-bold text-gray-900">All Products</h2>
                 <span className="text-gray-600">{filteredProducts.length} products</span>
               </div>
@@ -270,8 +347,9 @@ export default function Dashboard() {
                             {product.name}
                           </h3>
                           <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                            {product.category}
-                          </span>
+  {product.category?.name || "Uncategorized"}
+</span>
+
                         </div>
                         <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                           {product.description}
